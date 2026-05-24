@@ -1,14 +1,13 @@
 FROM node:20-alpine
 
+RUN apk add --no-cache postgresql-client
+
 WORKDIR /app
 
-# Copier package.json
 COPY package.json package-lock.json* ./
 
-# Installer les dépendances
 RUN npm install
 
-# Créer le dossier uploads
 RUN mkdir -p uploads && chown -R node:node /app
 
 COPY src/ ./src/
