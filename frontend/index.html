@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dummy App </title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; }
+    header { background: #1a1a2e; color: #fff; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 18px; font-weight: 500; }
+    .badge { font-size: 11px; background: #0f6e56; color: #9FE1CB; padding: 2px 8px; border-radius: 12px; }
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; display: grid; gap: 16px; }
+    .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 20px; }
+    .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: #333; display: flex; align-items: center; gap: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+    .dot.ok { background: #22c55e; }
+    .dot.err { background: #ef4444; }
+    .dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .row { display: flex; gap: 8px; margin-bottom: 8px; }
+    input, textarea { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; font-size: 13px; flex: 1; outline: none; }
+    input:focus, textarea:focus { border-color: #6366f1; }
+    button { background: #1a1a2e; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    button:hover { background: #2d2d4e; }
+    button.danger { background: #dc2626; }
+    button.danger:hover { background: #b91c1c; }
+    button.success { background: #0f6e56; }
+    button.success:hover { background: #0a5241; }
+    .result { background: #f8f8f8; border: 1px solid #eee; border-radius: 6px; padding: 10px 12px; font-size: 12px; font-family: monospace; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; color: #333; }
+    .result.ok { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+    .result.err { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 6px 10px; font-size: 11px; font-weight: 600; color: #888; border-bottom: 1px solid #eee; }
+    td { padding: 8px 10px; border-bottom: 1px solid #f3f3f3; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .empty { text-align: center; color: #aaa; padding: 20px; font-size: 13px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
+    .url-bar { font-size: 12px; color: #888; margin-bottom: 8px; font-family: monospace; }
+
+    /* ── Upload list actions ── */
+    .btn-group { display: flex; gap: 4px; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Dummy App</h1>
+  <span class="badge">LeaseWeb </span>
+</header>
+
+
+<main>
+  <!-- Health Check -->
+  <div class="card">
+    <h2><span class="dot loading" id="health-dot"></span> Health check — GET /health</h2>
+    <div class="url-bar" id="health-url">API: checking...</div>
+    <div class="result" id="health-out">Checking...</div>
+  </div>
+
+
+  <div class="grid2">
+    <!-- Items -->
+    <div class="card">
+      <h2>DB — Items (CRUD)</h2>
+      <div class="row">
+        <input id="item-name" placeholder="Item name" />
+        <input id="item-value" placeholder="Value (optional)" />
+        <button onclick="createItem()">Add</button>
+      </div>
+      <div id="items-list"><div class="empty">Loading...</div></div>
+    </div>
+
+
+    <!-- File Upload -->
+    <div class="card">
+      <h2>Storage — File upload</h2>
+      <div class="row">
+        <input type="file" id="file-input" />
+        <button onclick="uploadFile()">Upload</button>
+      </div>
+      <div class="result" id="upload-out" style="min-height:40px"></div>
+      <div style="margin-top:12px" id="uploads-list"></div>
+    </div>
+  </div>
+
+
+  <!-- WAF Test Panel -->
+  <div class="card">
+    <h2>WAF test payloads</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:12px">Send these to verify WAF blocks them. Each should return 403 or be sanitized.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <button onclick="wafTest('sqli')">SQLi</button>
+      <button onclick="wafTest('xss')">XSS</button>
+      <button onclick="wafTest('traversal')">Path traversal</button>
+      <button onclick="wafTest('ratelimit')">Rate limit (x110)</button>
+    </div>
+    <div class="result" id="waf-out" style="margin-top:12px;min-height:40px"></div>
+  </div>
+</main>
+
+
+<script>
+  const API = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000'
+    : '';  // same origin in prod (nginx proxies /api and /health)
+
+
+  document.getElementById('health-url').textContent = `API: ${API || window.location.origin}`;
+
+
+  async function checkHealth() {
+    const dot = document.getElementById('health-dot');
+    const out = document.getElementById('health-out');
+    try {
+      const r = await fetch(`${API}/health`);
+      const d = await r.json();
+      out.textContent = JSON.stringify(d, null, 2);
+      out.className = 'result ' + (d.db === 'ok' ? 'ok' : 'err');
+      dot.className = 'dot ' + (d.db === 'ok' ? 'ok' : 'err');
+    } catch (e) {
+      out.textContent = 'Error: ' + e.message;
+      out.className = 'result err';
+      dot.className = 'dot err';
+    }
+  }
+
+
+  async function loadItems() {
+    try {
+      const r = await fetch(`${API}/api/items`);
+      const d = await r.json();
+      const el = document.getElementById('items-list');
+      if (!d.items.length) { el.innerHTML = '<div class="empty">No items yet</div>'; return; }
+      el.innerHTML = `<table><thead><tr><th>ID</th><th>Name</th><th>Value</th><th>Created</th><th></th></tr></thead><tbody>
+        ${d.items.map(i => `<tr>
+          <td>${i.id}</td>
+          <td>${esc(i.name)}</td>
+          <td>${esc(i.value||'—')}</td>
+          <td>${new Date(i.created_at).toLocaleTimeString()}</td>
+          <td><button class="danger" onclick="deleteItem(${i.id})">✕</button></td>
+        </tr>`).join('')}
+      </tbody></table>`;
+    } catch(e) { document.getElementById('items-list').innerHTML = `<div class="empty">${e.message}</div>`; }
+  }
+
+
+  async function createItem() {
+    const name = document.getElementById('item-name').value.trim();
+    const value = document.getElementById('item-value').value.trim();
+    if (!name) return alert('Name required');
+    await fetch(`${API}/api/items`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ name, value }),
+    });
+    document.getElementById('item-name').value = '';
+    document.getElementById('item-value').value = '';
+    loadItems();
+  }
+
+
+  async function deleteItem(id) {
+    await fetch(`${API}/api/items/${id}`, { method: 'DELETE' });
+    loadItems();
+  }
+
+
+  async function uploadFile() {
+    const input = document.getElementById('file-input');
+    if (!input.files[0]) return alert('Choose a file first');
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    const out = document.getElementById('upload-out');
+    try {
+      const r = await fetch(`${API}/api/upload`, { method: 'POST', body: fd });
+      const d = await r.json();
+      out.className = 'result ' + (r.ok ? 'ok' : 'err');
+      out.textContent = JSON.stringify(d, null, 2);
+      loadUploads();
+    } catch(e) { out.className = 'result err'; out.textContent = e.message; }
+  }
+
+
+  // ─────────────────────────────────────────────────────────────
+  // loadUploads — affiche la liste + boutons Télécharger / Supprimer
+  // ─────────────────────────────────────────────────────────────
+  async function loadUploads() {
+    const r = await fetch(`${API}/api/upload`);
+    const d = await r.json();
+    const el = document.getElementById('uploads-list');
+    if (!d.uploads || !d.uploads.length) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Fichier</th>
+            <th>Taille</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${d.uploads.slice(0, 10).map(u => `
+            <tr>
+              <td title="${esc(u.filename)}">${esc(u.originalname)}</td>
+              <td>${(u.size / 1024).toFixed(1)} KB</td>
+              <td>
+                <div class="btn-group">
+                  <button
+                    class="success btn-sm"
+                    onclick="downloadUpload('${esc(u.filename)}', '${esc(u.originalname)}')"
+                    title="Télécharger ${esc(u.originalname)}">
+                    ⬇ Télécharger
+                  </button>
+                  <button
+                    class="danger btn-sm"
+                    onclick="deleteUpload('${esc(u.filename)}')"
+                    title="Supprimer ${esc(u.originalname)}">
+                    ✕ Supprimer
+                  </button>
+                </div>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+
+  async function downloadUpload(filename, originalname) {
+    try {
+      const r = await fetch(`${API}/api/upload/${encodeURIComponent(filename)}`);
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ error: r.statusText }));
+        return alert(`Erreur téléchargement : ${err.error || r.statusText}`);
+      }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = originalname || filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch(e) {
+      alert('Erreur téléchargement : ' + e.message);
+    }
+  }
+
+  async function deleteUpload(filename) {
+    if (!confirm(`Supprimer le fichier "${filename}" ?`)) return;
+    const out = document.getElementById('upload-out');
+    try {
+      const r = await fetch(`${API}/api/upload/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+      });
+      const d = await r.json();
+      if (r.ok) {
+        out.className = 'result ok';
+        out.textContent = `✓ Fichier supprimé : ${filename}`;
+      } else {
+        out.className = 'result err';
+        out.textContent = `Erreur suppression : ${d.error || r.statusText}`;
+      }
+      loadUploads();
+    } catch(e) {
+      out.className = 'result err';
+      out.textContent = 'Erreur suppression : ' + e.message;
+    }
+  }
+
+
+  const wafPayloads = {
+    sqli: "' OR '1'='1'; DROP TABLE items;--",
+    xss: "<script>alert('xss')</scr"+"ipt>",
+    traversal: '../../../../etc/passwd',
+    ratelimit: null,
+  };
+
+
+  async function wafTest(type) {
+    const out = document.getElementById('waf-out');
+    out.textContent = `Sending ${type} test...`;
+    out.className = 'result';
+
+
+    if (type === 'ratelimit') {
+      const results = [];
+      for (let i = 0; i < 110; i++) {
+        const r = await fetch(`${API}/api/items`);
+        results.push(r.status);
+        if (r.status === 429) {
+          out.textContent = `Rate limit hit after ${i+1} requests. Status: 429 ✓`;
+          out.className = 'result ok';
+          return;
+        }
+      }
+      out.textContent = `Sent 110 requests. Statuses: ${[...new Set(results)].join(', ')}`;
+      return;
+    }
+
+
+    const payload = wafPayloads[type];
+    try {
+      const r = await fetch(`${API}/api/items`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name: payload }),
+      });
+      const status = r.status;
+      const body = await r.text();
+      if (status === 403) {
+        out.className = 'result ok';
+        out.textContent = `WAF blocked: 403 Forbidden ✓\n${body}`;
+      } else {
+        out.className = 'result err';
+        out.textContent = `WAF DID NOT block (${status}) — check WAF config!\nPayload: ${payload}\nResponse: ${body}`;
+      }
+    } catch(e) { out.className = 'result err'; out.textContent = e.message; }
+  }
+
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+
+  checkHealth();
+  loadItems();
+  loadUploads();
+  setInterval(checkHealth, 30000);
+</script>
+</body>
+</html>
