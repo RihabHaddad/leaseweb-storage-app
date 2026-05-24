@@ -1,0 +1,17 @@
+
+# Environment
+.env
+
+# Uploads
+uploads/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
